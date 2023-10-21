@@ -23,15 +23,16 @@ using namespace std;
 double PI = 3.14159265359;
 
 double bore = 75.5; // vrtání D = 75.5 mm
-double stroke = 72; // zdvih Z = 72 mm
+double stroke = 72.0; // zdvih Z = 72 mm
 double surface = PI*bore*bore*0.25; //mm^2
-double pistonMass; //mass of whole piston
+double pistonMass = 0.405; // kg piston_old.CATproduct mass of whole piston
 
-double conrodMass;
-double conrodInertia;
-double conrodLength;
-double conrodLengthA;
-double conrodLengthB;
+double conrodMass = 0.824; //kg
+double conrodInertia = 30000; //kg*m^2
+double conrodLength = 150.0; //mm
+double conrodLengthB = 45.0; //mm
+double conrodLengthA = conrodLength-conrodLengthB;//mm
+
 
 double halfStroke = stroke / 2;
 double lambda = halfStroke / conrodLength;
@@ -134,37 +135,52 @@ int main()
 
 	inputFile.close();
 
+	ofstream outputFile("output.csv");
+	outputFile << "Crank angle, Chamber pressure,Wristpin position,Wristpin velocity, Wristpin acceleration,Conrod sliding acceleration, Conrod angular acceleration,Conrod momentum delta, Crankpin radial acceleration, Force from gas, Centrifugal wristpin force, Radial crankpin force,Tangent crankpin force, Centrifugal crankpin force, Total crankpin force " << endl;
 
-	//for()
+	for(int k = 0; k < angleValues.size();k++)
+	{
+		double angle = angleValues[k];
+		outputFile << angle;
+		//double time = 0;
+		double pressure = pressureValues[k];
+		outputFile << pressure;
 
-	double angle = 0;
-	double time = 0;
+		double dWristpinPosition = wristpinPosition(angle);
+		outputFile << dWristpinPosition << ",";
+		double dWristpinVelocity = wristpinVelocity(angle, angularVelocity);
+		outputFile << dWristpinVelocity << ",";
+		double dWristpinAcceleration = wristpinAcceleration(angle, angularVelocity);
+		outputFile << dWristpinAcceleration << ",";
 
-	double pressure = 0;
+		double dConrodSlidingAcceleration = conrodSlidingAcceleration(angle, angularVelocity);
+		outputFile << dConrodSlidingAcceleration << ",";
+		double dConrodAngularAcceleration = conrodAngularAcceleration(angle, angularVelocity);
+		outputFile << dConrodAngularAcceleration << ",";
+		double dConrodMomentumDelta = conrodMomentumDelta(angle, dConrodAngularAcceleration);
+		outputFile << dConrodMomentumDelta << ",";
 
-	double dWristpinPosition = wristpinPosition(angle);
-	double dWristpinVelocity = wristpinVelocity(angle, angularVelocity);
-	double dWristpinAcceleration = wristpinAcceleration(angle, angularVelocity);
+		double dCrankpinRadialAcceleration = crankpinRadialAcceleration(angularVelocity);
+		outputFile << dCrankpinRadialAcceleration << ",";
 
-	double dConrodSlidingAcceleration = conrodSlidingAcceleration(angle, angularVelocity);
-	double dConrodAngularAcceleration = conrodAngularAcceleration(angle, angularVelocity);
-	double dConrodMomentumDelta = conrodMomentumDelta(angle, dConrodAngularAcceleration);
+		double dForceFromGas = forceFromGas(pressure);
+		outputFile << dForceFromGas << ",";
+		double dForceWristpinCentrifugal = forceWristpinCentrifugal(dConrodSlidingAcceleration);
+		outputFile << dForceWristpinCentrifugal << ",";
+		double dForceCrankpinRadial = forceCrankpinRadial(dForceFromGas, angle);
+		outputFile << dForceCrankpinRadial << ",";
+		double dForceCrankpinTangent = forceCrankpinTangent(dForceFromGas, angle);
+		outputFile << dForceCrankpinTangent << ",";
+		double dForceCrankpinCentrifugal = forceCrankpinCentrifugal(angularVelocity);
+		outputFile << dForceCrankpinCentrifugal << ",";
+		double dForceCrankpin = forceCrankpin(dForceCrankpinRadial, dForceCrankpinTangent, dForceCrankpinCentrifugal);
+		outputFile << dForceCrankpin << ",";
+		outputFile << endl;
+	}
 
-	double dCrankpinRadialAcceleration = crankpinRadialAcceleration(angularVelocity);
-
-	double dForceFromGas = forceFromGas(pressure);
-	double dForceWristpinCentrifugal = forceWristpinCentrifugal(dConrodSlidingAcceleration);
-	double dForceCrankpinRadial = forceCrankpinRadial(dForceFromGas, angle);
-	double dForceCrankpinTangent = forceCrankpinTangent(dForceFromGas, angle);
-	double dForceCrankpinCentrifugal = forceCrankpinCentrifugal(angularVelocity);
-	double dForceCrankpin = forceCrankpin(dForceCrankpinRadial, dForceCrankpinTangent, dForceCrankpinCentrifugal);
-
-
-	//outputFile.close();
+	outputFile.close();
 	return 0;
 
-	//getline
-	//read
 }
 
 double wristpinPosition(double angle)
