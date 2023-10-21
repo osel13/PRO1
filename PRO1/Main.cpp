@@ -13,7 +13,6 @@ kompresní pomìr
 #include <math.h>
 #include <string>
 #include <fstream>
-//#include <sstream>
 #include <iostream>
 #include <vector>
 
@@ -140,11 +139,14 @@ int main()
 
 	for(int k = 0; k < angleValues.size();k++)
 	{
-		double angle = angleValues[k];
-		outputFile << angle;
+		double angleDeg = angleValues[k];
+		outputFile << angleDeg << ",";
+
+		double angle = angleDeg*(PI/180) ;
+
 		//double time = 0;
 		double pressure = pressureValues[k];
-		outputFile << pressure;
+		outputFile << pressure << ",";
 
 		double dWristpinPosition = wristpinPosition(angle);
 		outputFile << dWristpinPosition << ",";
@@ -190,7 +192,7 @@ double wristpinPosition(double angle)
 	double xp = halfStroke - halfStroke * cos(angle) + conrodLength - conrodLength * sqrt(root);
 	*/
 
-	double x_p = halfStroke * (conrodLength - cos(angle) + lambda / 2 * sin(angle) * sin(angle));
+	double x_p = bore - (halfStroke * (1 - cos(angle) + (lambda / 2) * sin(angle) * sin(angle)));
 	return x_p;
 }
 
@@ -201,7 +203,7 @@ double wristpinVelocity(double angle, double angularVelocity)
 	double vp = sin(angle) * (((lambda * lambda* conrodLength*cos(angle))/sqrt(root)) + halfStroke);
 	*/
 
-	double v_p = halfStroke * angularVelocity * (sin(angle) - lambda / 2 * (2 * angle));
+	double v_p = halfStroke * angularVelocity * (sin(angle) + lambda*0.5*sin(2 * angle));
 	return v_p;
 }
 
