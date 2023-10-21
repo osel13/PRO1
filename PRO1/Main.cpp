@@ -11,6 +11,14 @@ kompresní pomìr
 */
 
 #include <math.h>
+#include <string>
+#include <fstream>
+//#include <sstream>
+#include <iostream>
+#include <vector>
+
+
+using namespace std;
 
 double PI = 3.14159265359;
 
@@ -51,17 +59,88 @@ double forceCrankpin(double dForceCrankpinRadial, double dForceCrankpinTangent, 
 
 int main()
 {
-	int RPM = 4000; //otáèky n = 4000 RPM
-	double RPS = RPM / 60;
+	double RPM = 4000.0; //otáèky n = 4000 RPM
+	double RPS = RPM/60;
 	double angularVelocity = RPS * 2 * PI; // rad/sec
-	double timeStep;
+	//double timeStep;
+	//double angleStepDeg;
+	//double angleStepRad;
 
-	double angleDeg;
-	double angleRad;
-	double angle;
-	double time;
+	//open 4000.txt and "read it"
 
-	double pressure;
+	
+
+	int lineCount = 0;
+	string line;
+	ifstream inputFile("4000.txt");
+	vector<string> lines;
+	vector<double> pressureValues;
+	vector<double> angleValues;
+
+	if (inputFile.is_open())
+	{
+		//get number of lines + content
+
+		cout << "file accessed" << endl;
+		while (getline(inputFile,line))
+		{
+			lineCount++;
+			lines.push_back(line);
+		}
+
+		double dLineAngle;
+		double dLinePressure;
+		for (int i = 1;i<lineCount;i++)
+		{
+			string lineA = lines[i];
+			bool bAngle = true;
+			string lineAngle = "";
+			string linePressure = "";
+			for (int j = 0; j < lineA.size(); j++)
+			{
+				if (lineA[j] == '\t')
+				{
+					bAngle = false;
+					continue;
+				}
+
+				if (bAngle)
+				{
+					lineAngle = lineAngle + lineA[j];
+				}
+				else
+				{
+					linePressure = linePressure + lineA[j];
+				}
+			}
+
+			
+			double dLinePressure = stod(linePressure);
+			pressureValues.push_back(dLinePressure);
+
+			double dLineAngle = stod(lineAngle);
+			angleValues.push_back(dLineAngle);
+
+		}
+
+
+
+	}
+	else
+	{
+		cout << "file  not accessed" << endl;
+		return 0;
+	}
+
+	inputFile.close();
+
+
+	//for()
+
+	double angle = 0;
+	double time = 0;
+
+	double pressure = 0;
 
 	double dWristpinPosition = wristpinPosition(angle);
 	double dWristpinVelocity = wristpinVelocity(angle, angularVelocity);
@@ -80,6 +159,8 @@ int main()
 	double dForceCrankpinCentrifugal = forceCrankpinCentrifugal(angularVelocity);
 	double dForceCrankpin = forceCrankpin(dForceCrankpinRadial, dForceCrankpinTangent, dForceCrankpinCentrifugal);
 
+
+	//outputFile.close();
 	return 0;
 
 	//getline
