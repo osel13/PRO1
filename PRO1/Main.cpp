@@ -15,14 +15,14 @@ kompresní pomìr
 #include <fstream>
 #include <iostream>
 #include <vector>
+using namespace std;
 
 struct angleVsPressure
 {
 
-	vector <double> angle;
-	vector <double> pressure;
+vector <double> angle;
+vector <double> pressure;
 
-	//pair< vector<double>, vector<double>> pairVectors;
 };
 
 struct calculations
@@ -30,19 +30,19 @@ struct calculations
 	double wristpinPosition;
 	double wristpinVelocity;
 	double wristpinAcceleration;
-	double conrodSlidingAcceleration;
-	double conrodAngularAcceleration;
-	double conrodMomentumDelta;
-	double crankpinRadialAcceleration;
-	double forceFromGas;
-	double forceWristpinCentrifugal;
-	double forceCrankpinRadial;
-	double forceCrankpinTangent;
-	double forceCrankpinCentrifugal;
-	double forceCrankpin;
+	double forcePressure;
+	double forcePressureConrod;
+	double forcePressureWall;
+	double forcePressureRadial;
+	double forcePressureTangent;
+	double forceInertiaPiston;
+	double forceInertiaConrod;
+	double forceInertiaWall;
+	double forceInertiaRadial;
+	double forceInertiaTangent;
 };
 
-using namespace std;
+
 
 double PI = 3.14159265359;
 
@@ -52,54 +52,57 @@ double surface = PI*bore*bore*0.25; //mm^2
 double pistonMass = 0.405; // kg piston_old.CATproduct mass of whole piston
 
 double conrodMass = 0.824; //kg
-double conrodInertia = 30000; //kg*m^2
+double conrodInertia = 30000; //kg*mm^2
 double conrodLength = 150.0; //mm
 double conrodLengthB = 45.0; //mm
 double conrodLengthA = conrodLength-conrodLengthB;//mm
 
-double angleStepDeg = 0.1;
+double angleStepDeg = 0.5;
 int numberOfCylinders = 4;
 
-double freqStep = 0.01;
+double freqStep = 0.1;
 double freqMin = 0;
-double frequMax = 1000;
+double frequMax = 10;
 
 double halfStroke = stroke / 2;
 double lambda = halfStroke / conrodLength;
-double conrodSlidingMass = (conrodLengthB/conrodLength)*conrodMass;
-double conrodRotatingMass = (conrodLengthA/conrodLength)*conrodMass;
-double conrodInertiaPrime = conrodRotatingMass*conrodLengthB*conrodLengthB+conrodSlidingMass*conrodLengthA*conrodLengthA;
-double conrodInertiaDelta = conrodInertia - conrodInertiaPrime;
+double conrodSlidingMass = (conrodInertia-conrodMass*conrodLengthB*conrodLengthB)/(conrodLengthA*conrodLengthA-conrodLengthB*conrodLengthB);
+double conrodRotatingMass = conrodMass - conrodSlidingMass;
+
 
 
 //funkce
 angleVsPressure readInput();
+
 angleVsPressure recalculate(vector<double> angle, vector<double> pressure);
+angleVsPressure linearize(vector<double> angle, vector<double> pressure, double angleStepDeg);
 calculations calculate(double angle, double pressure, double angularVelocity);
 vector<double> forcesToMomentum(vector<calculations> calcul);
 vector<double> toAllCylinders(vector<double> momentum, int numberOfCylinders, double angleStepDeg);
 vector<double> fouriuer(vector<double> res, double freqStep, double freqMin, double frequMax);
 
-void writeResults(vector<calculations> calcul, vector<double> angle, vector<double> pressure, double angularVelocity);
+void writeResults(vector<calculations> calcul, vector<double> angle, vector<double> pressure);
 
 double wristpinPosition(double angle);
 double wristpinVelocity(double angle, double angularVelocity);
 double wristpinAcceleration(double angle, double angularVelocity);
 
-double conrodSlidingAcceleration(double angle, double angularVelocity);
-double conrodAngularAcceleration(double angle, double angularVelocity);
-double conrodMomentumDelta(double angle, double dConrodAngularAcceleration);
+//primární síly
+double forcePressure(double pressure);
+double forcePressureConrod(double forcePressure, double angle );
+double forcePressureWall(double forcePressure, double angle);
+double forcePressureRadial(double forcePressureConrod, double angle);
+double forcePressureTangent(double forcePressureConrod, double angle);
 
-double crankpinRadialAcceleration(double angularVelocity);
+//sekundární síly
+double forceInertiaPiston(double wristpinAcceleration);
+double forceInertiaConrod(double forceInertiaPiston, double angle);
+double forceInertiaWall(double forceInertiaPiston, double angle);
+double forceInertiaRadial(double forceInertiaConrod, double angle);
+double forceInertiaTangent(double forceInertiaConrod, double angle);
+//double forceCentrifugal(double angularVelocity);
 
-double forceFromGas(double pressure);
-double forceWristpinCentrifugal(double dConrodSlidingAcceleration);
-double forceCrankpinRadial(double force, double angle);
-double forceCrankpinTangent(double force, double angle);
-double forceCrankpinCentrifugal(double angularVelocity);
-double forceCrankpin(double dForceCrankpinRadial, double dForceCrankpinTangent, double dForceCrankpinCentrifugal);
-
-
+//str 14,50
 int main()
 {
 	double RPM = 4000.0; //otáèky n = 4000 RPM
@@ -107,33 +110,52 @@ int main()
 	double angularVelocity = RPS * 2 * PI; // rad/sec
 
 
-	vector<calculations> calcVector;
+	
 	
 	angleVsPressure input = readInput();
-	vector<double>ia = input.angle;
-	vector<double>ip = input.pressure;
-	angleVsPressure recalculated = recalculate(ia,ip);
+	cout << "Input Read" << endl;
+	angleVsPressure recalculated = recalculate(input.angle, input.pressure);
+	cout << "Recalculated" << endl;
 	angleVsPressure linearized = linearize(recalculated.angle, recalculated.pressure, angleStepDeg);
+	cout << "Linearized" << endl;
 
+	///Tady je problém, pøetejká vektor
 
-
-
+	vector<calculations> calcVector;
 	
-	for (int i = 0; i < linearized.angle.size(); i++)
+	for (int i = 0; i < linearized.angle.size(); i++) //velikost vektoru "-1"
 	{
 		calculations calc = calculate(linearized.angle[i], linearized.pressure[i], angularVelocity);
 		calcVector.push_back(calc);
 	}
-	
+
+	cout << "for success" << endl;
+
+
+	writeResults(calcVector, linearized.angle, linearized.pressure);
+	cout << "results written" << endl;
+
 	vector<double> momentum = forcesToMomentum(calcVector);
+	cout << "Momentum calculated" << endl;
 	vector<double> allCylM = toAllCylinders(momentum, numberOfCylinders, angleStepDeg);
-	vector<double> fourier = fouriuer(allCylM, freqStep, freqMin, frequMax);
+	cout << "cylinders multiplied" << endl;
+	
+	vector<double> omed;
+	double f;
+	for (int demo = 0; demo < 1000; demo++)
+	{
+		f = sin(2 * demo*PI/180) + sin(3 * demo* PI / 180);
+		omed.push_back(f);
+	}
+
+	vector<double> fourier = fouriuer(omed, freqStep, freqMin, frequMax);
+	cout << "fourier calculated" << endl;
 
 
 
 	//void writeResults(vector<calculations> calcul, vector<double> angle, vector<double> pressure, double angularVelocity);
-
 	return 0;
+	
 
 }
 
@@ -145,7 +167,7 @@ vector<double> forcesToMomentum(vector<calculations> calcul)
 	for (int i = 0;i<calcul.size();i++)
 	{
 		calculations c = calcul[i];
-		double mom = c.forceCrankpinTangent * halfStroke;
+		double mom = (c.forcePressureRadial-c.forceInertiaRadial) * halfStroke;
 		momentum.push_back(mom);
 	}
 	
@@ -155,7 +177,7 @@ vector<double> forcesToMomentum(vector<calculations> calcul)
 vector<double> toAllCylinders(vector<double> momentum, int numberOfCylinders, double angleStepDeg)
 {
 	double angle = 720 / numberOfCylinders;
-
+	
 	
 	vector < vector<double>> m;
 	//m.push_back(momentum);
@@ -163,6 +185,7 @@ vector<double> toAllCylinders(vector<double> momentum, int numberOfCylinders, do
 
 	for (int j = 0; j < numberOfCylinders;j++)
 	{
+
 		vector<double> mo;
 		vector<double> mom;
 		vector<double> momTemp;
@@ -170,7 +193,9 @@ vector<double> toAllCylinders(vector<double> momentum, int numberOfCylinders, do
 
 		for (int i = 0; i < momentum.size(); i++)
 		{
+			
 			double mm = momentum[i];
+
 			if (i < floor(720-(angleStepDeg * angle * numberOfCylinders)))
 			{
 				mom.push_back(mm);
@@ -180,6 +205,7 @@ vector<double> toAllCylinders(vector<double> momentum, int numberOfCylinders, do
 				momTemp.push_back(mm);
 			}
 		}
+
 
 		for (int j = 0; j < momTemp.size(); j++)
 		{
@@ -194,7 +220,7 @@ vector<double> toAllCylinders(vector<double> momentum, int numberOfCylinders, do
 		m.push_back(mo);
 	}
 
-	for (int l = 0;l<momentum.size();l++)
+	for (int l = 0;l<m.size();l++)
 	{
 		double r=0;
 
@@ -226,23 +252,27 @@ vector<double> fouriuer(vector<double> res,double freqStep,double freqMin, doubl
 
 	for (int j = 0;frequenceMin+(frequenceStep*j)<frequenceMax ;j++)
 	{
-		double freq = frequenceMin + (frequenceStep * j);
+		double freq = frequenceMin * (PI / 180) + (frequenceStep * (PI / 180) * j);
 			frequences.push_back(freq);
 	}
 
+
+
 	for (int k = 0; k < frequences.size(); k++)
 	{
-		double xr;
-		double xi;
-		double x;
+
+		double xr = 0;
+		double xi = 0;
+		double x = 0;
+
 		for (int i = 0; i < res.size(); i++)
 		{
-
-			xr = xr + Xr[i] * cos(2 * PI * frequences[k] * i / res.size()); // ?
-			xi = xi + Xi[i] * sin(2 * PI * frequences[k] * i / res.size());
-			x = x + sqrt(xr * xr + xi * xi);
-
+				xr = xr + res[i] * cos(2 * PI * frequences[k] * i / res.size()); // ?
+				xi = xi + res[i] * sin(2 * PI * frequences[k] * i / res.size());
+				//x = x + sqrt((xr * xr) + (xi * xi));
+				
 		}
+		x = x + sqrt((xr * xr) + (xi * xi));
 		Xi.push_back(xi);
 		Xr.push_back(xr);
 		X.push_back(x);
@@ -250,10 +280,10 @@ vector<double> fouriuer(vector<double> res,double freqStep,double freqMin, doubl
 
 
 	//write file
-	fstream frier("fourier.csv");
+	ofstream frier("fourier.csv");
 	for (int write = 1; write < frequences.size(); write++)
 	{
-		double f = frequences[write];
+		double f = frequences[write]*180/PI;
 		double xix = Xi[write];
 		double xrx = Xr[write];
 		double xxx = X[write];
@@ -266,20 +296,36 @@ vector<double> fouriuer(vector<double> res,double freqStep,double freqMin, doubl
 	return X;
 }
 
-
+/*
 void torsion()
 {
 
 }
+*/
 
-void writeResults(vector<calculations> calcul, vector<double> angle,  vector<double> pressure, double angularVelocity)
+void writeResults(vector<calculations> calcul, vector<double> angle,  vector<double> pressure)
 {
 	vector<double> angleValues = angle;
 	vector<double> pressureValues = pressure;
 	
 
 	ofstream outputFile("output.csv");
-	outputFile << "Crank angle, Chamber pressure,Wristpin position,Wristpin velocity, Wristpin acceleration,Conrod sliding acceleration, Conrod angular acceleration,Conrod momentum delta, Crankpin radial acceleration, Force from gas, Centrifugal wristpin force, Radial crankpin force,Tangent crankpin force, Centrifugal crankpin force, Total crankpin force " << endl;
+	outputFile << "Crank angle," ;   
+	outputFile << "Chamber pressure,";
+	outputFile << "Wristpin position,";
+	outputFile << "Wristpin velocity,";
+	outputFile << "Wristpin acceleration,";
+	outputFile << "dForcePressure,";
+	outputFile << "dForcePressureConrod,";
+	outputFile << "dForcePressureWall,";
+	outputFile << "dForcePressureRadial,";
+	outputFile << "dForcePressureTangent,";
+	outputFile << "dForceInertiaPiston,";
+	outputFile << "dForceInertiaConrod,";
+	outputFile << "dForceInertiaWall,";
+	outputFile << "dForceInertiaRadial,";
+	outputFile << "dforceInertiaTangent" << endl;
+		
 
 	for (int k = 0; k < angleValues.size(); k++)
 	{
@@ -300,28 +346,27 @@ void writeResults(vector<calculations> calcul, vector<double> angle,  vector<dou
 		double dWristpinAcceleration = calc.wristpinAcceleration;
 		outputFile << dWristpinAcceleration << ",";
 
-		double dConrodSlidingAcceleration = calc.conrodSlidingAcceleration;
-		outputFile << dConrodSlidingAcceleration << ",";
-		double dConrodAngularAcceleration = calc.conrodAngularAcceleration;
-		outputFile << dConrodAngularAcceleration << ",";
-		double dConrodMomentumDelta = calc.conrodMomentumDelta;
-		outputFile << dConrodMomentumDelta << ",";
+		double dForcePressure = calc.forcePressure;
+		outputFile << dForcePressure << ",";
+		double dForcePressureConrod = calc.forcePressureConrod;
+		outputFile << dForcePressureConrod << ",";
+		double dForcePressureWall = calc.forcePressureWall;
+		outputFile << dForcePressureWall << ",";
+		double dForcePressureRadial = calc.forcePressureRadial;
+		outputFile << dForcePressureRadial << ",";
+		double dForcePressureTangent = calc.forcePressureTangent;
+		outputFile << dForcePressureTangent << ",";
+		double dForceInertiaPiston = calc.forceInertiaPiston;
+		outputFile << dForceInertiaPiston << ",";
+		double dForceInertiaConrod = calc.forceInertiaConrod;
+		outputFile << dForceInertiaConrod << ",";
+		double dForceInertiaWall = calc.forceInertiaWall;
+		outputFile << dForceInertiaWall << ",";
+		double dForceInertiaRadial = calc.forceInertiaRadial;
+		outputFile << dForceInertiaRadial << ",";
+		double dForceInertiaTangent = calc.forceInertiaTangent;
+		outputFile << dForceInertiaTangent << ",";
 
-		double dCrankpinRadialAcceleration = calc.crankpinRadialAcceleration;
-		outputFile << dCrankpinRadialAcceleration << ",";
-
-		double dForceFromGas = calc.forceFromGas;
-		outputFile << dForceFromGas << ",";
-		double dForceWristpinCentrifugal = calc.forceWristpinCentrifugal;
-		outputFile << dForceWristpinCentrifugal << ",";
-		double dForceCrankpinRadial = calc.forceCrankpinRadial;
-		outputFile << dForceCrankpinRadial << ",";
-		double dForceCrankpinTangent = calc.forceCrankpinTangent;
-		outputFile << dForceCrankpinTangent << ",";
-		double dForceCrankpinCentrifugal = calc.forceCrankpinCentrifugal;
-		outputFile << dForceCrankpinCentrifugal << ",";
-		double dForceCrankpin = calc.forceCrankpin;
-		outputFile << dForceCrankpin << ",";
 		outputFile << endl;
 	}
 
@@ -333,17 +378,36 @@ calculations calculate(double angle, double pressure, double angularVelocity)
 	double dWristpinPosition = wristpinPosition(angle);
 	double dWristpinVelocity = wristpinVelocity(angle, angularVelocity);
 	double dWristpinAcceleration = wristpinAcceleration(angle, angularVelocity);
-	double dConrodSlidingAcceleration = conrodSlidingAcceleration(angle, angularVelocity);
-	double dConrodAngularAcceleration = conrodAngularAcceleration(angle, angularVelocity);
-	double dConrodMomentumDelta = conrodMomentumDelta(angle, dConrodAngularAcceleration);
-	double dForceFromGas = forceFromGas(pressure);
-	double dForceWristpinCentrifugal = forceWristpinCentrifugal(dConrodSlidingAcceleration);
-	double dForceCrankpinRadial = forceCrankpinRadial(dForceFromGas, angle);
-	double dForceCrankpinTangent = forceCrankpinTangent(dForceFromGas, angle);
-	double dForceCrankpinCentrifugal = forceCrankpinCentrifugal(angularVelocity);
-	double dForceCrankpin = forceCrankpin(dForceCrankpinRadial, dForceCrankpinTangent, dForceCrankpinCentrifugal);
 
-	calculations calc = { dWristpinPosition, dWristpinVelocity, dWristpinAcceleration, dConrodSlidingAcceleration, dConrodAngularAcceleration, dConrodMomentumDelta, dForceFromGas, dForceWristpinCentrifugal, dForceCrankpinRadial, dForceCrankpinTangent, dForceCrankpinCentrifugal, dForceCrankpin };
+	//primární síly
+	double dForcePressure = forcePressure(pressure);
+	double dForcePressureConrod = forcePressureConrod(dForcePressure, angle);
+	double dForcePressureWall = forcePressureWall( dForcePressure, angle);
+	double dForcePressureRadial = forcePressureRadial(dForcePressureConrod,angle);
+	double dForcePressureTangent = forcePressureTangent(dForcePressureConrod, angle);
+
+	//sekundární síly
+	double dForceInertiaPiston = forceInertiaPiston(dWristpinAcceleration);
+	double dForceInertiaConrod = forceInertiaConrod(dForceInertiaPiston, angle);
+	double dForceInertiaWall = forceInertiaWall(dForceInertiaPiston, angle);
+	double dForceInertiaRadial = forceInertiaRadial(dForceInertiaConrod, angle);
+	double dforceInertiaTangent = forceInertiaTangent(dForceInertiaConrod, angle);
+	//double forceCentrifugal(double angularVelocity);
+
+	calculations calc = { 
+		dWristpinPosition, 
+		dWristpinVelocity, 
+		dWristpinAcceleration, 
+		dForcePressure,
+		dForcePressureConrod, 
+		dForcePressureWall, 
+		dForcePressureRadial,
+		dForcePressureTangent,
+		dForceInertiaPiston,
+		dForceInertiaConrod, 
+		dForceInertiaWall, 
+		dForceInertiaRadial,
+		dforceInertiaTangent };
 	return calc;
 }
 
@@ -363,8 +427,9 @@ angleVsPressure readInput()
 		//cout << "file accessed" << endl;
 		while (getline(inputFile, line))
 		{
-			lineCount++;
+			
 			lines.push_back(line);
+			lineCount = lineCount + 1;
 		}
 
 		double dLineAngle;
@@ -394,14 +459,15 @@ angleVsPressure readInput()
 			}
 
 
-			double dLinePressure = stod(linePressure);
+			dLinePressure = stod(linePressure);
 			pressureValues.push_back(dLinePressure);
 
-			double dLineAngle = stod(lineAngle);
+			dLineAngle = stod(lineAngle);
 			angleValues.push_back(dLineAngle);
 
 		}
 
+		
 
 
 	}
@@ -411,6 +477,7 @@ angleVsPressure readInput()
 		
 	}
 
+	//cout << angleValues[angleValues.size()-1] << endl;
 	inputFile.close();
 
 	angleVsPressure result = { angleValues, pressureValues };
@@ -455,6 +522,7 @@ angleVsPressure recalculate(vector<double> angle, vector<double> pressure)
 		press.push_back(tempPressure[j]);
 	}
 
+	//cout << angl[angl.size() - 1] << endl;
 
 	angleVsPressure result = {angl,press};
 	return result;
@@ -465,12 +533,18 @@ angleVsPressure linearize(vector<double> angle, vector<double> pressure, double 
 	double degree = 0.0;
 	vector<double> angl;
 	vector<double> press;
+	
 
-	while (degree <= (720 - angleStepDeg));
+	while(degree < angle[angle.size()-1])
 	{
-		angl.push_back(degree);
-		for (int i = 0; i < angle.size();)
-		{
+		
+		for (int i = 0; i < angle.size()-1;i++)
+		{	
+			if (i < 1)
+			{
+				angl.push_back(degree);
+			}
+
 			if (angle[i]<degree && angle [i+1] > degree)
 			{
 				double deg = angle[i];
@@ -487,111 +561,126 @@ angleVsPressure linearize(vector<double> angle, vector<double> pressure, double 
 			else
 			{
 				continue;
+				cout << "continued" << endl;
 			}
 			
 		}
 		degree = degree + angleStepDeg;
+		angl.push_back(degree);
+		
 	}
 
 	angleVsPressure result = { angl,press };
 	return result;
 }
 
-double wristpinPosition(double angle)
+double wristpinPosition(double degrees)
 {
-	/*
-	double root = 1 - lambda * lambda * sin(angle) * sin(angle);
-	double xp = halfStroke - halfStroke * cos(angle) + conrodLength - conrodLength * sqrt(root);
-	*/
-
-	double x_p = bore - (halfStroke * (1 - cos(angle) + (lambda / 2) * sin(angle) * sin(angle)));
+	double angle = degrees * (PI / 180);
+	double x_p = halfStroke*cos(angle) + sqrt((conrodLength*conrodLength)-(halfStroke*sin(angle)*halfStroke*sin(angle))); // viz diplomka
 	return x_p;
 }
 
-double wristpinVelocity(double angle, double angularVelocity)
+double wristpinVelocity(double degrees, double angularVelocity)
 {
-	/*
-	double root = 1 - lambda * lambda * sin(angle) * sin(angle);
-	double vp = sin(angle) * (((lambda * lambda* conrodLength*cos(angle))/sqrt(root)) + halfStroke);
-	*/
-
-	double v_p = halfStroke * angularVelocity * (sin(angle) + lambda*0.5*sin(2 * angle));
+	double angle = degrees * (PI / 180);
+	double root(sqrt((conrodLength * conrodLength) - (halfStroke * sin(angle) * halfStroke * sin(angle))));
+	double brace = halfStroke * sin(angle) * (((halfStroke * cos(angle)) / (root)) - 1);
+	double v_p = angularVelocity * brace;
 	return v_p;
 }
 
-double wristpinAcceleration(double angle, double angularVelocity)
+double wristpinAcceleration(double degrees, double angularVelocity)
 {
-	/*
-	double root = pow((1-lambda*lambda*sin(angle)*sin(angle)), (3 / 2));
-	double ap = ((lambda * lambda * conrodLength * sin(angle)*sin(angle)*(lambda*lambda*sin(angle)*sin(angle)-1)+lambda*lambda*conrodLength*cos(angle)*cos(angle)+halfStroke*cos(angle)*root)/root);
-	*/
-
-	double a_p = halfStroke * angularVelocity * angularVelocity*(cos(angle)+lambda*cos(2*angle));
+	double angle = degrees * (PI / 180);
+	double root(sqrt((conrodLength * conrodLength) - (halfStroke * sin(angle) * halfStroke * sin(angle))));
+	double brace = halfStroke * sin(angle) * (((halfStroke * cos(angle)) / (root)) );
+	double middle = (pow(halfStroke, 3) * sin(angle) * pow(cos(angle), 2)) / (pow(conrodLength * conrodLength - halfStroke * halfStroke * sin(angle) * sin(angle), 3 / 2));
+	double a = halfStroke*cos(angle)*(brace-1) + halfStroke*sin(angle)*(middle-brace);
+	double a_p = angularVelocity * a;
 	return a_p;
 }
 
-double conrodSlidingAcceleration(double angle, double angularVelocity)
-{
-	double a_r = halfStroke * angularVelocity * angularVelocity;
-	double a_p = a_r * (cos(angle) + lambda * cos(2 * angle));
 
-	return a_p;
+double forcePressure(double pressure)
+{
+	double Fp = pressure * surface;
+	return Fp;
 }
 
-double conrodAngularAcceleration(double angle, double angularVelocity)
+double forcePressureConrod(double forcePressure, double angle)
 {
-	double epsilon = -lambda * angularVelocity * angularVelocity * ((1 + lambda * lambda / 8) * sin(angle) - (3 / 8) * sin(3 * angle));
-	return epsilon;
+	double angleRad = angle * PI / 180;
+	double beta = sqrt(1-lambda*lambda*sin(angleRad)*sin(angleRad));
+	double Fpc = forcePressure / cos(beta);
+	return Fpc;
 }
 
-
-double conrodMomentumDelta(double angle, double dConrodAngularAcceleration)
+double forcePressureWall(double forcePressure, double angle)
 {
-	double compensationMomentum = -conrodInertiaDelta*lambda*((1+(lambda*lambda)/8)*sin(angle)-(3*lambda*lambda*sin(3*angle))/8);
-	double dM = conrodInertiaDelta * dConrodAngularAcceleration + compensationMomentum;
-	return dM;
+	double angleRad = angle * PI / 180;
+	double beta = sqrt(1 - lambda * lambda * sin(angleRad) * sin(angleRad));
+	double Fpn = forcePressure * tan(beta);
+	return Fpn;
 }
 
-double crankpinRadialAcceleration(double angularVelocity)
+double forcePressureRadial(double forcePressureConrod, double angle)
 {
-	double a_r = halfStroke * angularVelocity * angularVelocity;
-	return a_r;
+	double angleRad = angle * PI / 180;
+	double beta = sqrt(1 - lambda * lambda * sin(angleRad) * sin(angleRad));
+	double Fpr = forcePressureConrod * cos(angleRad + beta);
+	return Fpr;
 }
 
-double forceFromGas(double pressure)
+double forcePressureTangent(double forcePressureConrod, double angle)
 {
-	double force = surface * pressure;
-	return force;
+	double angleRad = angle * PI / 180;
+	double beta = sqrt(1 - lambda * lambda * sin(angleRad) * sin(angleRad));
+	double Fpt = forcePressureConrod * sin(angleRad + beta);
+	return Fpt;
 }
 
-double forceWristpinCentrifugal(double dConrodSlidingAcceleration)
+//sekundární síly
+double forceInertiaPiston(double wristpinAcceleration)
 {
-	double force = (pistonMass + conrodSlidingMass) * dConrodSlidingAcceleration;
-	return force;
+	double Fip = (pistonMass + conrodSlidingMass) * wristpinAcceleration;
+	return Fip;
+}
+double forceInertiaConrod(double forceInertiaPiston, double angle)
+{
+	double angleRad = angle * PI / 180;
+	double beta = sqrt(1 - lambda * lambda * sin(angleRad) * sin(angleRad));
+	double Fic = forceInertiaPiston / cos(beta);
+	return Fic;
 }
 
-double forceCrankpinRadial(double force, double angle)
+double forceInertiaWall(double forceInertiaPiston, double angle)
 {
-	double P_r = force * (cos(angle) - lambda * sin(angle) * sin(angle));
-	return P_r;
+	double angleRad = angle * PI / 180;
+	double beta = sqrt(1 - lambda * lambda * sin(angleRad) * sin(angleRad));
+	double Fin = forceInertiaPiston * tan(beta);
+	return Fin;
+}
+double forceInertiaRadial(double forceInertiaConrod, double angle)
+{
+	double angleRad = angle * PI / 180;
+	double beta = sqrt(1 - lambda * lambda * sin(angleRad) * sin(angleRad));
+	double Fir = forceInertiaConrod * cos(angleRad + beta);
+	return Fir;
+}
+double forceInertiaTangent(double forceInertiaConrod, double angle)
+{
+	double angleRad = angle * PI / 180;
+	double beta = sqrt(1 - lambda * lambda * sin(angleRad) * sin(angleRad));
+	double Fit = forceInertiaConrod * sin(angleRad + beta);
+	return Fit;
 }
 
-double forceCrankpinTangent(double force, double angle)
+/*
+double forceCentrifugal(double angularVelocity)
 {
-	double P_t = force * (sin(angle) + lambda / 2 * sin(2 * angle));
-	return P_t;
+	double Fc(conrodRotationalMass + crankshaftMass)*halfStroke*angularVelocity*angularVelocity;
+	return Fc;
 }
 
-double forceCrankpinCentrifugal(double angularVelocity)
-{
-	double S_or = conrodRotatingMass * halfStroke * angularVelocity * angularVelocity;
-	return S_or;
-}
-
-
-double forceCrankpin(double dForceCrankpinRadial, double dForceCrankpinTangent, double dForceCrankpinCentrifugal)
-{
-	double P_oL = sqrt((dForceCrankpinRadial + dForceCrankpinCentrifugal) * (dForceCrankpinRadial + dForceCrankpinCentrifugal) + dForceCrankpinTangent * dForceCrankpinTangent);
-	return P_oL;
-}
-
+*/
