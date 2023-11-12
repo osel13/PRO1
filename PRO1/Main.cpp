@@ -20,6 +20,7 @@ kompresní pomìr
 #include "wristpinDynamics.h"
 #include "crankpinDynamics.h"
 #include "Momentums.h"
+#include "Fourier.h"
 
 
 using namespace std;
@@ -32,37 +33,6 @@ struct angleVsPressure
 
 };
 
-struct calculations
-{
-	/*
-	//Kinematics
-	double pistonPosition;
-	double pistonVelocity;
-	double pistonAcceleration;
-
-	//Dynamics
-	//Piston
-	double pistonPressureForce;
-	double pistonInertia;
-	double pistonTotalForce;
-	//Wristpin
-	double pistonSideForce;
-	double alongConrodForce;
-	//Crankpin
-	double crankpinInertia;
-	double alongCylinderTotalForce;
-	double alongConrodTotalForce;
-	double normalForce;
-	double conrodRadialForce;
-	double conrodTangentialForce;
-	double conrodRotationalInertia;
-	double totalRadialForce;
-	//double totalTangentialForce;
-	*/
-};
-
-
-
 //double PI = 3.14159265359;
 
 double bore = 75.5; // vrtání D = 75.5 mm
@@ -70,7 +40,7 @@ double stroke = 72.0; // zdvih Z = 72 mm
 double surface = 3.14159 * bore * bore * 0.25; //mm^2
 double pistonMass = 0.405; // kg piston_old.CATproduct mass of whole piston
 
-double pressureAtmospheric = 1.013250; //Bar, Temperature, elevation dependent
+double pressureAtmospheric = 101325.0; //Pa, Temperature, elevation dependent
 
 double conrodMass = 0.824; //kg
 double conrodInertia = 30000; //kg*mm^2
@@ -92,15 +62,9 @@ double conrodRotatingMass = conrodMass - conrodSlidingMass;
 
 
 
-//funkce
 angleVsPressure readInput();
-
 angleVsPressure recalculate(vector<double> angle, vector<double> pressure);
 angleVsPressure linearize(vector<double> angle, vector<double> pressure, double angleStepDeg);
-//calculations calculate(double angle, double pressure, double angularVelocity);
-//vector<double> forcesToMomentum(vector<calculations> calcul);
-//vector<double> toAllCylinders(vector<double> momentum, int numberOfCylinders, double angleStepDeg);
-//vector<double> fouriuer(vector<double> res, double freqStep, double freqMin, double frequMax);
 
 //void writeResults(vector<calculations> calcul, vector<double> angle, vector<double> pressure);
 
@@ -136,6 +100,7 @@ int main()
 
 	cout << "Kinematics loaded" << endl;
 	
+	//k.debugPrint();
 	
 	pistonDynamics pD;
 	std::vector<double> pistonPressureForce;
@@ -149,6 +114,8 @@ int main()
 		pistonTotalForce.push_back(pD.calculatePistonTotalForce(pistonPressureForce[j], pistonInertialForce[j]));
 
 	}
+
+	//pD.debugPrint();
 	
 	cout << "PistonDynamics loaded" << endl;
 
@@ -163,6 +130,8 @@ int main()
 	}
 
 	cout << "wristpinDynamics loaded" << endl;
+	
+	//wD.debugPrint();
 
 	crankpinDynamics cD;
 	vector<double> CrankpinInertia;
@@ -193,75 +162,40 @@ int main()
 
 	Momentums m;
 
+	vector<double>momentumSum = m.Sum(ConrodTangentialForce, linearized.angle, numberOfCylinders, halfStroke);
 	//m.DebugPrint(ConrodTangentialForce, linearized.angle, halfStroke);
+	double momentumAverage = m.Average(ConrodTangentialForce, linearized.angle, numberOfCylinders, halfStroke);
+	cout << momentumAverage << endl;
+
+	cout << "Momentums loaded" << endl;
+
+	Fourier f;
+	int freqSpan = 1000;
+	//f.debugPrint(momentumSum, 1000);
+	std::vector<Fourier::Res> Four = f.dFT(momentumSum, freqSpan);
+	std::vector<double> mag;
+	std::vector<double> real;
+	std::vector<double> img;
+
+	for (int n = 0; n < Four.size(); n++)
+	{
+		real.push_back(Four[n].real);
+		img.push_back(Four[n].img);
+		double root = sqrt(pow(Four[n].real, 2) + pow(Four[n].img, 2));
+		mag.push_back(root);
+	}
+
+
+	cout << "cFourier Transformed" << endl;
+
+
 
 	return 0;
 
 }
 
 /*
-vector<double> toAllCylinders(vector<double> momentum, int numberOfCylinders, double angleStepDeg)
-{
-	double angle = 720 / numberOfCylinders;
 
-
-	vector < vector<double>> m;
-	//m.push_back(momentum);
-	vector<double> res;
-
-	for (int j = 0; j < numberOfCylinders; j++)
-	{
-
-		vector<double> mo;
-		vector<double> mom;
-		vector<double> momTemp;
-		//vector<double> 
-
-		for (int i = 0; i < momentum.size(); i++)
-		{
-
-			double mm = momentum[i];
-
-			if (i < floor(720 - (angleStepDeg * angle * numberOfCylinders)))
-			{
-				mom.push_back(mm);
-			}
-			else
-			{
-				momTemp.push_back(mm);
-			}
-		}
-
-
-		for (int j = 0; j < momTemp.size(); j++)
-		{
-			mo.push_back(momTemp[j]);
-		}
-
-		for (int k = 0; k < mom.size(); k++)
-		{
-			mo.push_back(mom[k]);
-		}
-
-		m.push_back(mo);
-	}
-
-	for (int l = 0; l < m.size(); l++)
-	{
-		double r = 0;
-
-		for (int n = 0; n < numberOfCylinders; n++)
-		{
-			r = r + m[l][n];
-
-		}
-
-		res.push_back(r);
-
-	}
-	return res;
-
-}
 
 vector<double> fouriuer(vector<double> res, double freqStep, double freqMin, double frequMax)
 {
@@ -367,12 +301,12 @@ angleVsPressure readInput()
 				}
 				else
 				{
-					linePressure = linePressure + lineA[j];
+					linePressure = linePressure + lineA[j]; //from bar to pa
 				}
 			}
 
 
-			dLinePressure = stod(linePressure);
+			dLinePressure = stod(linePressure) *100000;
 			pressureValues.push_back(dLinePressure);
 
 			dLineAngle = stod(lineAngle);

@@ -59,7 +59,8 @@ double crankpinDynamics::calculateConrodTangentialForce(double AlongConrodTotalF
 	double angleRad = angleDeg * 3.14159 / 180;
 	double lambda = halfStroke / conrodLength;
 	double beta = sqrt(1 - pow(lambda * sin(angleRad), 2));
-	double CTF = AlongConrodTotalForce * (sin(angleRad + beta));
+	//double CTF = AlongConrodTotalForce * (sin(angleRad + beta));
+	double CTF = sqrt(pow(AlongConrodTotalForce, 2) - pow(AlongConrodTotalForce, 2) * pow(sin(3.14159 / 2 - (angleRad + beta)), 2));
 	return CTF;
 }
 
