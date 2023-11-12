@@ -67,7 +67,7 @@ double crankpinDynamics::calculateConrodTangentialForce(double AlongConrodTotalF
 
 double crankpinDynamics::calculateConrodRotationalInertia(double conrodRotatingMass,double halfStroke, double RPM)
 {
-	double angularVelocity = RPM / 60 * 2 * 3.14159;
+	double angularVelocity = (RPM / 60) * 2 * 3.14159;
 	double CRIF = conrodRotatingMass * halfStroke * pow(angularVelocity, 2);
 	return CRIF;
 
