@@ -116,7 +116,7 @@ std::vector<double> Momentums::Sum(std::vector<double> tangentialForces, std::ve
 
     for (int j = 0; j < angleDeg.size(); j++)
     {
-        double dTemp =0;
+        double dTemp =0.0;
         for (int k = 0; k < momentumToCylinders.size(); k++)
         {
             dTemp = dTemp + momentumToCylinders[k][j];
@@ -130,33 +130,19 @@ std::vector<double> Momentums::Sum(std::vector<double> tangentialForces, std::ve
 double Momentums::Average(std::vector<double> tangentialForces, std::vector<double> angleDeg, int numberOfCylinders, double halfStroke) //weird
 {
     Momentums m;
-    std::vector<std::vector<double>> momentumToCylinders;
     std::vector<double> temp;
     std::vector<double> tTemp;
+    double result = 0.0;
     
-    temp.clear();
-    for (int i = 0; i < numberOfCylinders; i++)
-    {
-        temp = m.momentumToNthCylinder(tangentialForces, angleDeg, i, numberOfCylinders, halfStroke);
-        momentumToCylinders.push_back(temp);
-    }
-
-
-    for (int j = 0; j < angleDeg.size(); j++)
-    {
-        double dTemp = 0;
+        temp = m.Sum(tangentialForces, angleDeg, numberOfCylinders, halfStroke);
         
-        for (int k = 0; k < momentumToCylinders.size(); k++)
+        for (int i = 0; i < temp.size(); i++)
         {
-            dTemp = dTemp + momentumToCylinders[k][j];
+            result = result + temp[i];
         }
-        tTemp.push_back(dTemp/ momentumToCylinders.size());
-    }
-    double result = 0;
-    for (int l = 0; l < angleDeg.size(); l++)
-    {
-        result = result + tTemp[l];
-    }
+        result = result / temp.size();
 
-    return result/ angleDeg.size();
+
+
+    return result;
 }

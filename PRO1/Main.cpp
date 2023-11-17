@@ -17,7 +17,6 @@ kompresní pomìr
 #include <vector>
 #include "Kinematics.h"
 #include "pistonDynamics.h"
-#include "wristpinDynamics.h"
 #include "crankpinDynamics.h"
 #include "Momentums.h"
 #include "Fourier.h"
@@ -35,18 +34,18 @@ struct angleVsPressure
 
 //double PI = 3.14159265359;
 
-double bore = 75.5; // vrtání D = 75.5 mm
-double stroke = 72.0; // zdvih Z = 72 mm
-double surface = 3.14159 * bore * bore * 0.25; //mm^2
+double bore = 75.5*0.001; // vrtání D = 75.5 mm
+double stroke = 72.0 * 0.001; // zdvih Z = 72 mm
+double surface = 3.14159 * pow(bore,2) / 4; //m^2
 double pistonMass = 0.405; // kg piston_old.CATproduct mass of whole piston
 
-double pressureAtmospheric = 101325.0; //Pa, Temperature, elevation dependent
+double pressureAtmospheric = 101325; //Pa, Temperature, elevation dependent
 
 double conrodMass = 0.824; //kg
-double conrodInertia = 30000; //kg*mm^2
-double conrodLength = 150.0; //mm
-double conrodLengthB = 45.0; //mm
-double conrodLengthA = conrodLength - conrodLengthB;//mm
+double conrodInertia = 0.03; // 30000 kg*mm^2
+double conrodLength = 150.0 * 0.001; //m
+double conrodLengthB = 45.0 * 0.001; //m
+double conrodLengthA = conrodLength - conrodLengthB;//m
 
 double angleStepDeg = 0.5;
 int numberOfCylinders = 4;
@@ -72,11 +71,6 @@ angleVsPressure linearize(vector<double> angle, vector<double> pressure, double 
 int main()
 {
 	double RPM = 4000.0; //otáèky n = 4000 RPM
-	double RPS = RPM / 60;
-	double angularVelocity = RPS * 2 * 3.14159265359; // rad/sec
-
-
-
 	
 	angleVsPressure input = readInput();
 	cout << "Input Read" << endl;
@@ -100,7 +94,6 @@ int main()
 
 	cout << "Kinematics loaded" << endl;
 	
-	//k.debugPrint();
 	
 	pistonDynamics pD;
 	std::vector<double> pistonPressureForce;
@@ -110,32 +103,18 @@ int main()
 	for (int j = 0; j < linearized.angle.size(); j++)
 	{
 		pistonPressureForce.push_back(pD.calculatePistonPressureForce(linearized.pressure[j],surface,pressureAtmospheric));
-		pistonInertialForce.push_back(pD.calculatePistonInertia(pistonMass,pistonAcceleration[j]));
+		pistonInertialForce.push_back(pD.calculatePistonInertia(pistonMass,conrodSlidingMass, pistonAcceleration[j]));
 		pistonTotalForce.push_back(pD.calculatePistonTotalForce(pistonPressureForce[j], pistonInertialForce[j]));
 
 	}
 
-	//pD.debugPrint();
+
 	
 	cout << "PistonDynamics loaded" << endl;
 
-	wristpinDynamics wD;
-	std::vector<double> pistonSideForce;
-	std::vector<double> forceAlongConrod;
-	
-	for (int k = 0; k < linearized.angle.size(); k++)
-	{
-		pistonSideForce.push_back(wD.calculatePistonSideForce(pistonTotalForce[k],linearized.angle[k],halfStroke,conrodLength));
-		forceAlongConrod.push_back(wD.calculateAlongConrodForce(pistonTotalForce[k], linearized.angle[k], halfStroke, conrodLength));
-	}
 
-	cout << "wristpinDynamics loaded" << endl;
-	
-	//wD.debugPrint();
 
 	crankpinDynamics cD;
-	vector<double> CrankpinInertia;
-	vector<double> AlongCylinderTotalForce;
 	vector<double> AlongConrodTotalForce;
 	vector<double> NormalForce;
 	vector<double> ConrodRadialForce;
@@ -143,18 +122,16 @@ int main()
 	vector<double> ConrodRotationalInertia;
 	vector<double> TotalRadialForce;
 
-	//	cD.debugPrint(pistonAcceleration, linearized.pressure, linearized.angle, pistonMass, conrodSlidingMass, conrodRotatingMass, halfStroke, conrodLength, RPM);
+
 
 	for (int l = 0; l < linearized.angle.size(); l++)
 	{
-		CrankpinInertia.push_back(cD.calculateCrankpinInertia(pistonMass, conrodSlidingMass, pistonAcceleration[l]));
-		AlongCylinderTotalForce.push_back(cD.calculateAlongCylinderTotalForce(pistonPressureForce[l], CrankpinInertia[l]));
-		AlongConrodTotalForce.push_back(cD.calculateAlongConrodTotalForce(AlongCylinderTotalForce[l], linearized.angle[l], halfStroke, conrodLength));
-		NormalForce.push_back(cD.calculateNormalForce(AlongConrodTotalForce[l], linearized.angle[l], halfStroke, conrodLength));
-		ConrodRadialForce.push_back(cD.calculateConrodRadialForce(AlongConrodTotalForce[l], linearized.angle[l],  halfStroke,  conrodLength));
-		ConrodTangentialForce.push_back(cD.calculateConrodTangentialForce(AlongConrodTotalForce[l], linearized.angle[l], halfStroke, conrodLength));
+		AlongConrodTotalForce.push_back(cD.calculateAlongConrodTotalForce(pistonTotalForce[l], linearized.angle[l], halfStroke, conrodLength));
+		NormalForce.push_back(cD.calculateNormalForce(pistonTotalForce[l], linearized.angle[l], halfStroke, conrodLength));
+		ConrodRadialForce.push_back(cD.calculateConrodRadialForce(pistonTotalForce[l], linearized.angle[l],  halfStroke,  conrodLength));
+		ConrodTangentialForce.push_back(cD.calculateConrodTangentialForce(pistonTotalForce[l], linearized.angle[l], halfStroke, conrodLength));
 		ConrodRotationalInertia.push_back(cD.calculateConrodRotationalInertia(conrodRotatingMass, halfStroke, RPM));
-		TotalRadialForce.push_back(cD.calculateTotalRadialForce( ConrodRadialForce[l], ConrodRotationalInertia[l]));
+		TotalRadialForce.push_back(cD.calculateTotalRadialForce( ConrodRadialForce[l], ConrodRotationalInertia[l], ConrodTangentialForce[l]));
 	}
 
 	cout << "crankpinDynamics loaded" << endl;
@@ -163,7 +140,6 @@ int main()
 	Momentums m;
 
 	vector<double>momentumSum = m.Sum(ConrodTangentialForce, linearized.angle, numberOfCylinders, halfStroke);
-	//m.DebugPrint(ConrodTangentialForce, linearized.angle, halfStroke);
 	double momentumAverage = m.Average(ConrodTangentialForce, linearized.angle, numberOfCylinders, halfStroke);
 	cout << momentumAverage << endl;
 
@@ -171,7 +147,6 @@ int main()
 
 	Fourier f;
 	int freqSpan = 1000;
-	//f.debugPrint(momentumSum, 1000);
 	std::vector<Fourier::Res> Four = f.dFT(momentumSum, freqSpan);
 	std::vector<double> mag;
 	std::vector<double> real;
@@ -186,83 +161,27 @@ int main()
 	}
 
 
-	cout << "cFourier Transformed" << endl;
+	cout << "Fourier Transformed" << endl;
 
+	k.debugPrint(RPM,halfStroke,conrodLength);
+	cD.debugPrint(pistonAcceleration, linearized.pressure, linearized.angle, pistonMass, conrodSlidingMass, conrodRotatingMass, halfStroke, conrodLength, RPM);
+	pD.debugPrint(linearized.angle, pistonPressureForce, pistonInertialForce, pistonTotalForce);
+	m.DebugPrint(ConrodTangentialForce, linearized.angle, halfStroke);
+	f.debugPrint(momentumSum, 1000);
 
+	cout << "debug printed" << endl;
+
+		//jak dostat frekvence z 
 
 	return 0;
 
 }
 
-/*
-
-
-vector<double> fouriuer(vector<double> res, double freqStep, double freqMin, double frequMax)
-{
-	vector<double> Xr;
-	vector<double> Xi;
-	vector<double> X;
-
-	vector<double> frequences;
-	double frequenceStep = freqStep;
-	double frequenceMin = freqMin;
-	double frequenceMax = frequMax;
-
-	vector<double> fourier;
-
-	for (int j = 0; frequenceMin + (frequenceStep * j) < frequenceMax; j++)
-	{
-		double freq = frequenceMin * (3.14159 / 180) + (frequenceStep * (3.14159 / 180) * j);
-		frequences.push_back(freq);
-	}
-
-
-
-	for (int k = 0; k < frequences.size(); k++)
-	{
-
-		double xr = 0;
-		double xi = 0;
-		double x = 0;
-
-		for (int i = 0; i < res.size(); i++)
-		{
-			xr = xr + res[i] * cos(2 * 3.14159 * frequences[k] * i / res.size()); // ?
-			xi = xi + res[i] * sin(2 * 3.14159 * frequences[k] * i / res.size());
-			//x = x + sqrt((xr * xr) + (xi * xi));
-
-		}
-		x = x + sqrt((xr * xr) + (xi * xi));
-		Xi.push_back(xi);
-		Xr.push_back(xr);
-		X.push_back(x);
-	}
-
-
-	//write file
-	ofstream frier("fourier.csv");
-	for (int write = 1; write < frequences.size(); write++)
-	{
-		double f = frequences[write] * 180 / 3.14159;
-		double xix = Xi[write];
-		double xrx = Xr[write];
-		double xxx = X[write];
-
-		frier << f << "," << xix << "," << xrx << "," << xxx << endl;
-	}
-
-	frier.close();
-
-	return X;
-}
-
-*/
-
 angleVsPressure readInput()
 {
 	int lineCount = 0;
 	string line;
-	ifstream inputFile("4000.txt");
+	ifstream inputFile("4000.txt"); //https://www.mas.bg.ac.rs/_media/istrazivanje/fme/vol46/4/6_l_anetor_et_al.pdf
 	vector<string> lines;
 	vector<double> pressureValues;
 	vector<double> angleValues;
@@ -306,7 +225,7 @@ angleVsPressure readInput()
 			}
 
 
-			dLinePressure = stod(linePressure) *100000;
+			dLinePressure = stod(linePressure) * 100000;
 			pressureValues.push_back(dLinePressure);
 
 			dLineAngle = stod(lineAngle);

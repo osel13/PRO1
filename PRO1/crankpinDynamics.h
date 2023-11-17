@@ -26,7 +26,7 @@ public:
 	double calculateConrodRotationalInertia(double conrodRotatingMass, double halfStroke, double RPM);
 
 
-	double calculateTotalRadialForce(double ConrodRadialForce, double conrodRotationalInertia);
+	double calculateTotalRadialForce(double conrodRadialForce, double conrodRotationalInertia, double conrodTangentialForce);
 
 	void debugPrint(std::vector<double> pistonAcceleration, std::vector<double> pressureForce, std::vector<double> angleDeg, double pistonMass, double conrodSlidingMass, double conrodRotatingMass, double halfStroke, double conrodLength, double RPM);
 };

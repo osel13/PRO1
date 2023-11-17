@@ -1,16 +1,12 @@
 #pragma once
 #include <vector>
+
 class pistonDynamics
 {
-private:
 public:
-
-	double calculatePistonPressureForce(double pressure, double surface, double pressureAtmospheric);
-
-	double calculatePistonInertia(double pistonMass, double pistonAcceleration);
-
-	double calculatePistonTotalForce(double pistonPressureForce, double pistonInertia);
-	
-	void debugPrint(std::vector<double> pistonAcceleration, std::vector<double> angle, std::vector<double> pressure, double surface, double pressureAtmospheric, double pistonMass);
+	double calculatePistonPressureForce(double pistonPressure, double surface, double pressureAtmospheric);
+	double calculatePistonInertia(double pistonMass, double conrodSlidingMass, double pistonAcceleration);
+	double calculatePistonTotalForce(double pistonPressureForce, double pistonInertialForce);
+	int debugPrint(std::vector<double> angle, std::vector<double> pressureForce, std::vector<double> pistonInertialForce, std::vector<double> pistonTotalForce);
 };
 

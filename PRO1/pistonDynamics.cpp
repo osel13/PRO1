@@ -1,50 +1,46 @@
 #pragma once
 #include "pistonDynamics.h"
-#include <fstream>
 #include <vector>
+#include <fstream>
 
-double pistonDynamics::calculatePistonPressureForce(double pressure,double surface, double pressureAtmospheric)
+double pistonDynamics::calculatePistonPressureForce(double pistonPressure, double surface, double pressureAtmospheric)
 {
-
-	double pressureForce = (pressure - pressureAtmospheric) * surface;
-	return pressureForce;
+	double PPF = (pistonPressure  - pressureAtmospheric) * surface;
+	return PPF;
 }
 
-double pistonDynamics::calculatePistonInertia(double pistonMass, double pistonAcceleration)
+double pistonDynamics::calculatePistonInertia(double pistonMass, double conrodSlidingMass, double pistonAcceleration)
 {
-	double pistonInertia = pistonMass * pistonAcceleration*0.001; //m*s^-2
-	return pistonInertia;
+	double PI = -(pistonMass + conrodSlidingMass) * pistonAcceleration;
+	return PI;
 }
 
-double pistonDynamics::calculatePistonTotalForce(double pistonPressureForce, double pistonInertia)
+double pistonDynamics::calculatePistonTotalForce(double pistonPressureForce, double pistonInertialForce)
 {
-	double totalForce = pistonPressureForce+pistonInertia;
-	return totalForce;
+	double PTF = pistonPressureForce + pistonInertialForce;
+	return PTF;
 }
 
-void pistonDynamics::debugPrint(std::vector<double> pistonAcceleration, std::vector<double> angle, std::vector<double> pressure, double surface, double pressureAtmospheric,double pistonMass )
+int pistonDynamics::debugPrint(std::vector<double> angle, std::vector<double> pressureForce, std::vector<double> pistonInertialForce, std::vector<double> pistonTotalForce)
 {
-	pistonDynamics pD;
 	std::ofstream Debug;
 	Debug.open("pistonDynamicsDebug.csv");
-	Debug << "angle" << ",";
-	Debug << "pistonPressureForce [N]" << ",";
-	Debug << "pistonInertiaForce [N]" << ",";
-	Debug << "pistonTotalForce [N]" << std:: endl;
+	Debug << "angle [deg],pressureForce[N],pistonInertialForce[N],pistonTotalForce[N]";
+	Debug << std::endl;
 
-	for (int i = 0; i < pistonAcceleration.size(); i++)
+	for (int i =0;i<angle.size();i++)
 	{
-		Debug << angle[i] << ",";
-		double PPF = pD.calculatePistonPressureForce(pressure[i],surface,pressureAtmospheric) ;
-		Debug << PPF << ",";
-		double PIF = pD.calculatePistonInertia(pistonMass,pistonAcceleration[i]);
-		Debug << PIF << ",";
-		double PTF = pD.calculatePistonTotalForce(PPF,PIF);
-		Debug << PTF << std::endl;
-
+		Debug << angle[i];
+		Debug << ",";
+		Debug << pressureForce[i];
+		Debug << ",";
+		Debug << pistonInertialForce[i];
+		Debug << ",";
+		Debug << pistonTotalForce[i];
+		Debug << std::endl;
 	}
 
 	Debug.close();
 
-
+	return 0;
 }

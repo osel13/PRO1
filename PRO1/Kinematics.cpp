@@ -7,7 +7,8 @@ double Kinematics::calculatePistonPosition(double angleDeg, double halfStroke, d
 {
 	double angleRad = angleDeg * 3.14159 / 180;
 	double lambda = halfStroke / conrodLength;
-	double s = halfStroke * (1 - cos(angleRad) + (lambda / 4) * (1 - cos(2*angleRad)));
+	//double s = halfStroke * (1 - cos(angleRad) + (lambda / 4) * (1 - cos(2*angleRad)));
+	double s = halfStroke * (1 - cos(angleRad) + lambda * 0.5 * pow(sin(angleRad), 2));
 	return s;
 }
 
@@ -31,7 +32,8 @@ double Kinematics::calculatePistonVelocity(double RPM, double angleDeg, double h
 	double angleRad = angleDeg * 3.14159 / 180;
 	double angularVelocity = (RPM/60)*2* 3.14159;
 	double lambda = halfStroke / conrodLength;
-	double v = halfStroke * angularVelocity * (sin(angleRad)+(lambda/2)*sin(2*angleRad));
+	//double v = halfStroke * angularVelocity * (sin(angleRad)+(lambda/2)*sin(2*angleRad));
+	double v = halfStroke * angularVelocity*(sin(angleRad + lambda * 0.5 * sin(2 * angleRad)));
 	return v;
 }
 
@@ -57,7 +59,8 @@ double Kinematics::calculatePistonAcceleration(double RPM, double angleDeg, doub
 	double angleRad = angleDeg * 3.14159 / 180;
 	double angularVelocity = (RPM / 60) * 2 * 3.14159;
 	double lambda = halfStroke / conrodLength;
-	double a = halfStroke * pow(angularVelocity, 2) * (cos(angleRad)+lambda*cos(2*angleRad));
+	//double a = halfStroke * pow(angularVelocity, 2) * (cos(angleRad)+lambda*cos(2*angleRad));
+	double a = halfStroke * pow(angularVelocity, 2) * (cos(angleRad) + lambda * cos(2 * angleRad));
 	return a;
 }
 
@@ -89,33 +92,33 @@ void Kinematics::debugPrint(double RPM, double halfStroke, double conrodLength)
 	std::ofstream Debug;
 	Debug.open("debugKinematics.csv");
 	Debug << "angle[deg]" << ",";
-	Debug << "pistonPosition[mm]" << ",";
-	Debug << "pistonPositionFirstOrder[mm]" << ",";
-	Debug << "pistonPositionSecondOrder[mm]" << ",";
-	Debug << "pistonVelocity[mm]" << ",";
+	Debug << "pistonPosition[mm*10^2]" << ",";
+	Debug << "pistonPositionFirstOrder[mm*10^2]" << ",";
+	Debug << "pistonPositionSecondOrder[mm*10^2]" << ",";
+	Debug << "pistonVelocity[mm*sec^-1]" << ",";
 	Debug << "pistonVelocityFirstOrder[mm]" << ",";
 	Debug << "pistonVelocitySecondOrder[mm]" << ",";
-	Debug << "pistonAcceleration[mm]" << ",";
-	Debug << "pistonAccelerationFirstOrder[mm]" << ",";
-	Debug << "pistonAccelerationSecondOrder[mm]" << ",";
+	Debug << "pistonAcceleration[m*sec^-2]" << ",";
+	Debug << "pistonAccelerationFirstOrder[m*sec^-2]" << ",";
+	Debug << "pistonAccelerationSecondOrder[m*sec^-2]" << ",";
 	Debug << std::endl;
 
 
 	for (int i = 0; i < angleMax / angleStep; i++)
 	{
 		Debug << i * angleStep << ",";
-		double PP = k.calculatePistonPosition(i*angleStep,halfStroke,conrodLength);
+		double PP = k.calculatePistonPosition(i*angleStep,halfStroke,conrodLength)*100000;
 		Debug << PP << ",";
-		double PPFO = k.calculatePistonPositionFirstOrder(i * angleStep, halfStroke);
+		double PPFO = k.calculatePistonPositionFirstOrder(i * angleStep, halfStroke)*100000;
 		Debug << PPFO << ",";
-		double PPSO = k.calculatePistonPositionSecondOrder(i * angleStep, halfStroke,  conrodLength);
+		double PPSO = k.calculatePistonPositionSecondOrder(i * angleStep, halfStroke,  conrodLength)*100000;
 		Debug << PPSO << ",";
 
-		double PV = k.calculatePistonVelocity( RPM, i * angleStep,  halfStroke,  conrodLength);
+		double PV = k.calculatePistonVelocity( RPM, i * angleStep,  halfStroke,  conrodLength)*1000;
 		Debug << PV << ",";
-		double PVFO = k.calculatePistonVelocityFirstOrder( RPM, i * angleStep,  halfStroke);
+		double PVFO = k.calculatePistonVelocityFirstOrder( RPM, i * angleStep,  halfStroke)*1000;
 		Debug << PVFO << ",";
-		double PVSO = k.calculatePistonVelocitySecondOrder( RPM, i * angleStep,  halfStroke,  conrodLength);
+		double PVSO = k.calculatePistonVelocitySecondOrder( RPM, i * angleStep,  halfStroke,  conrodLength)*1000;
 		Debug << PVSO << ",";
 
 		double PA = k.calculatePistonAcceleration( RPM, i * angleStep,  halfStroke,  conrodLength);

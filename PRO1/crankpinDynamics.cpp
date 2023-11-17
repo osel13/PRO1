@@ -15,7 +15,7 @@ double crankpinDynamics::calculateCrankpinInertia(double pistonMass, double conr
 
 double crankpinDynamics::calculateAlongCylinderTotalForce(double pressureForce, double crankpinInertia)
 {
-	double ACylTF = pressureForce - crankpinInertia;
+	double ACylTF = pressureForce + crankpinInertia;
 	return ACylTF;
 }
 
@@ -37,7 +37,7 @@ double crankpinDynamics::calculateNormalForce(double AlongConrodTotalForce, doub
 	double angleRad = angleDeg * 3.14159 / 180;
 	double lambda = halfStroke / conrodLength;
 	double beta = sqrt(1 - pow(lambda * sin(angleRad), 2));
-	double NF = AlongConrodTotalForce * sin(beta);
+	double NF = AlongConrodTotalForce * tan(beta);
 	return NF;
 }
 
@@ -48,7 +48,9 @@ double crankpinDynamics::calculateConrodRadialForce(double AlongConrodTotalForce
 	double angleRad = angleDeg * 3.14159 / 180;
 	double lambda = halfStroke / conrodLength;
 	double beta = sqrt(1 - pow(lambda * sin(angleRad), 2));
-	double CRF = -AlongConrodTotalForce * (cos(angleRad + beta));
+	//double CRF = AlongConrodTotalForce * (cos(angleRad + beta));
+	//double CRF = AlongConrodTotalForce*(cos(angleRad) - lambda * pow(sin(angleRad), 2));
+	double CRF = AlongConrodTotalForce * (cos(angleRad + beta) / cos(beta));
 	return CRF;
 }
 
@@ -60,7 +62,9 @@ double crankpinDynamics::calculateConrodTangentialForce(double AlongConrodTotalF
 	double lambda = halfStroke / conrodLength;
 	double beta = sqrt(1 - pow(lambda * sin(angleRad), 2));
 	//double CTF = AlongConrodTotalForce * (sin(angleRad + beta));
-	double CTF = sqrt(pow(AlongConrodTotalForce, 2) - pow(AlongConrodTotalForce, 2) * pow(sin(3.14159 / 2 - (angleRad + beta)), 2));
+	//double CTF = sqrt(pow(AlongConrodTotalForce, 2) - pow(AlongConrodTotalForce, 2) * pow(sin(3.14159 / 2 - (angleRad + beta)), 2));
+	//double CTF = AlongConrodTotalForce * (sin(angleRad) + lambda * 0.5 * sin(2 * angleRad));
+	double CTF = AlongConrodTotalForce * (sin(angleRad + beta) / cos(beta));
 	return CTF;
 }
 
@@ -76,9 +80,9 @@ double crankpinDynamics::calculateConrodRotationalInertia(double conrodRotatingM
 
 
 
-double crankpinDynamics::calculateTotalRadialForce(double conrodRadialForce, double conrodRotationalInertia)
+double crankpinDynamics::calculateTotalRadialForce(double conrodRadialForce, double conrodRotationalInertia, double conrodTangentialForce)
 {
-	double TRF = conrodRadialForce + conrodRotationalInertia;
+	double TRF = sqrt(pow((conrodRadialForce + conrodRotationalInertia),2)+pow((conrodTangentialForce),2));
 	return TRF;
 }
 
@@ -105,7 +109,7 @@ void crankpinDynamics::debugPrint(std::vector<double> pistonAcceleration, std::v
 		double CRF = cD.calculateConrodRadialForce(AConTF, angleDeg[i], halfStroke, conrodLength);
 		double CTF = cD.calculateConrodTangentialForce(AConTF, angleDeg[i], halfStroke, conrodLength);
 		double CRI = cD.calculateConrodRotationalInertia(conrodRotatingMass, halfStroke, RPM);
-		double TRF = cD.calculateTotalRadialForce(CRF, CRI);
+		double TRF = cD.calculateTotalRadialForce(CRF, CRI,CTF);
 
 		Debug << CI; 
 		Debug << ",";
